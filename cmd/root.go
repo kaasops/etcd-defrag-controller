@@ -49,7 +49,7 @@ func init() {
 
 func StartController() error {
 	c := getConnOpts()
-	etcdcli, _, err := client.NewEtcdClient(c)
+	etcdcli, err := client.NewEtcdClient(c)
 	if err != nil {
 		return err
 	}

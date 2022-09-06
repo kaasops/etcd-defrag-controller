@@ -18,7 +18,7 @@ type ConnOpts struct {
 	DialTimeout time.Duration
 }
 
-func NewEtcdClient(c ConnOpts) (*clientv3.Client, clientv3.Maintenance, error) {
+func NewEtcdClient(c ConnOpts) (*clientv3.Client, error) {
 	cfg := clientv3.Config{
 		DialTimeout: c.DialTimeout,
 		Endpoints:   endpoinsToList(c.Endpoints),
@@ -26,18 +26,16 @@ func NewEtcdClient(c ConnOpts) (*clientv3.Client, clientv3.Maintenance, error) {
 	if c.CAfile != "" && c.Certfile != "" && c.Keyfile != "" {
 		tlsConfig, err := NewTLSConfig(c)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		cfg.TLS = tlsConfig
 	}
 	cli, err := clientv3.New(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	mcli := clientv3.NewMaintenance(cli)
-
-	return cli, mcli, nil
+	return cli, nil
 }
 
 func NewTLSConfig(c ConnOpts) (*tls.Config, error) {
