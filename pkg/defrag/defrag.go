@@ -28,6 +28,10 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 		if err != nil {
 			return err
 		}
+		if !GetMemberHealth(ctx, m, c) {
+			klog.Errorf("Member %s is unhealthy. Cancel defragmentation", m.Name)
+			return err
+		}
 		if leader == nil && status.Leader == m.ID {
 			leader = m
 			continue
@@ -70,4 +74,25 @@ func DefragmentMember(ctx context.Context, member *etcdserverpb.Member, c *clien
 		return nil, err
 	}
 	return resp, nil
+}
+
+func GetMemberHealth(ctx context.Context, member *etcdserverpb.Member, c *client.ConnOpts) bool {
+	cli, err := client.NewMemberEtcdClient(member, c)
+	if err != nil {
+		klog.Errorf("Failed to create etcd member client %v", err)
+		return false
+	}
+	defer func() {
+		if cli == nil {
+			return
+		}
+		if err := cli.Close(); err != nil {
+			klog.Errorf("error closing etcd client for defrag: %v", err)
+		}
+	}()
+	resp, err := cli.Get(ctx, "health")
+	if err == nil && resp.Header != nil {
+		return true
+	}
+	return false
 }

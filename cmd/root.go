@@ -55,7 +55,7 @@ func StartController() {
 		ctx, cancel := context.WithTimeout(context.Background(), client.RequestDefaultTimeout)
 		err = defrag.RunDefrag(ctx, etcdcli, c)
 		if err != nil {
-			klog.Fatal("Defragment error: %v", err)
+			klog.Errorf("Defragment error: %v", err)
 		}
 		etcdcli.Close()
 		cancel()
