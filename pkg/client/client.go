@@ -4,24 +4,25 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
+	"log"
 	"strings"
 	"time"
 
+	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 type ConnOpts struct {
-	Endpoints   string
 	CAfile      string
 	Certfile    string
 	Keyfile     string
 	DialTimeout time.Duration
 }
 
-func NewEtcdClient(c ConnOpts) (*clientv3.Client, error) {
+func NewEtcdClient(endpoints string, c *ConnOpts) (*clientv3.Client, error) {
 	cfg := clientv3.Config{
 		DialTimeout: c.DialTimeout,
-		Endpoints:   endpoinsToList(c.Endpoints),
+		Endpoints:   endpoinsToList(endpoints),
 	}
 	if c.CAfile != "" && c.Certfile != "" && c.Keyfile != "" {
 		tlsConfig, err := NewTLSConfig(c)
@@ -38,7 +39,19 @@ func NewEtcdClient(c ConnOpts) (*clientv3.Client, error) {
 	return cli, nil
 }
 
-func NewTLSConfig(c ConnOpts) (*tls.Config, error) {
+func NewMemberEtcdClient(member *etcdserverpb.Member, c *ConnOpts) (*clientv3.Client, error) {
+	if len(member.ClientURLs) == 0 {
+		log.Fatalf("Member %s is not ready", member.Name)
+		return nil, nil
+	}
+	cli, err := NewEtcdClient(member.ClientURLs[0], c)
+	if err != nil {
+		return nil, err
+	}
+	return cli, nil
+}
+
+func NewTLSConfig(c *ConnOpts) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(c.Certfile, c.Keyfile)
 	if err != nil {
 		return nil, err

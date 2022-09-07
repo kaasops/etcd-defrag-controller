@@ -1,5 +1,5 @@
 /*
-Copyright © 2022 NAME HERE <EMAIL ADDRESS>
+Copyright © 2022 Denis Khachyan <khachyanda@gmail.com>
 
 */
 package cmd
@@ -7,17 +7,17 @@ package cmd
 import (
 	"context"
 	"etcd-defrag-controller/pkg/client"
-	"log"
+	"etcd-defrag-controller/pkg/defrag"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
 var (
-	Endpoints string
-	CAfile    string
-	Certfile  string
-	Keyfile   string
+	EndpointsCmd string
+	CAfileCmd    string
+	CertfileCmd  string
+	KeyfileCmd   string
 )
 
 var rootCmd = &cobra.Command{
@@ -41,40 +41,31 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.Flags().StringVar(&Endpoints, "endpoints", os.Getenv("ETCD_ENDPOINTS"), "gRPC endpoints")
-	rootCmd.Flags().StringVar(&CAfile, "cacert", os.Getenv("ETCD_CACERT"), "verify certificates of TLS-enabled secure servers using this CA bundle")
-	rootCmd.Flags().StringVar(&Certfile, "cert", os.Getenv("ETCD_CERT"), "identify secure client using this TLS certificate file")
-	rootCmd.Flags().StringVar(&Keyfile, "key", os.Getenv("ETCD_KEY"), "identify secure client using this TLS key file")
+	rootCmd.Flags().StringVar(&EndpointsCmd, "endpoints", os.Getenv("ETCD_ENDPOINTS"), "gRPC endpoints")
+	rootCmd.Flags().StringVar(&CAfileCmd, "cacert", os.Getenv("ETCD_CACERT"), "verify certificates of TLS-enabled secure servers using this CA bundle")
+	rootCmd.Flags().StringVar(&CertfileCmd, "cert", os.Getenv("ETCD_CERT"), "identify secure client using this TLS certificate file")
+	rootCmd.Flags().StringVar(&KeyfileCmd, "key", os.Getenv("ETCD_KEY"), "identify secure client using this TLS key file")
 }
 
 func StartController() error {
-	c := getConnOpts()
-	etcdcli, err := client.NewEtcdClient(c)
+	c := GetConnOpts()
+	etcdcli, err := client.NewEtcdClient(EndpointsCmd, c)
 	if err != nil {
 		return err
 	}
-	ctx, _ := context.WithTimeout(context.Background(), client.RequestDefaultTimeout)
-
-	for _, endpoint := range etcdcli.Endpoints() {
-		log.Printf("Start defragmenting endpoint: %s", endpoint)
-
-		_, err := etcdcli.Defragment(ctx, endpoint)
-
-		if err != nil {
-			return err
-		}
-		log.Println("Finished defrag")
-	}
+	defer etcdcli.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), client.RequestDefaultTimeout)
+	defrag.RunDefrag(ctx, etcdcli, c)
+	cancel()
 	return nil
 }
 
 // Get connection options from cmd
-func getConnOpts() client.ConnOpts {
-	return client.ConnOpts{
-		Endpoints:   Endpoints,
-		CAfile:      CAfile,
-		Certfile:    Certfile,
-		Keyfile:     Keyfile,
+func GetConnOpts() *client.ConnOpts {
+	return &client.ConnOpts{
+		CAfile:      CAfileCmd,
+		Certfile:    CertfileCmd,
+		Keyfile:     KeyfileCmd,
 		DialTimeout: client.DialDefaultTimeout,
 	}
 }
