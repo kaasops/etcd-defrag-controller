@@ -16,6 +16,7 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 	}
 	var etcdMembers []*etcdserverpb.Member
 	var leader *etcdserverpb.Member
+	klog.Infof("Start defragmentation")
 	for _, m := range resp.Members {
 		if m.IsLearner {
 			continue
@@ -39,13 +40,13 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 	}
 
 	for _, member := range etcdMembers {
-		klog.Infof("Start defragmenting endpoint: %s", member.Name)
+		klog.Infof("Defragmenting endpoint: %s", member.Name)
 		_, err := DefragmentMember(ctx, member, c)
 		if err != nil {
 			return err
 		}
-		klog.Infof("Finished defrag")
 	}
+	klog.Infof("Defragmentation finished")
 	return nil
 }
 
