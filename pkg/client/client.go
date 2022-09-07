@@ -44,7 +44,7 @@ func NewTLSConfig(c ConnOpts) (*tls.Config, error) {
 		return nil, err
 	}
 
-	cacert, err := ioutil.ReadFile(c.Certfile)
+	cacert, err := ioutil.ReadFile(c.CAfile)
 	if err != nil {
 		return nil, err
 	}
