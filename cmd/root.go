@@ -9,8 +9,10 @@ import (
 	"etcd-defrag-controller/pkg/client"
 	"etcd-defrag-controller/pkg/defrag"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
 var (
@@ -24,12 +26,8 @@ var rootCmd = &cobra.Command{
 	Use:   "etcd-defrag-controller",
 	Short: "Controller to defragment kubernetes etcd database",
 	Long:  `Controller to defragment kubernetes etcd database`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		err := StartController()
-		if err != nil {
-			return err
-		}
-		return nil
+	Run: func(cmd *cobra.Command, args []string) {
+		StartController()
 	},
 }
 
@@ -47,17 +45,22 @@ func init() {
 	rootCmd.Flags().StringVar(&KeyfileCmd, "key", os.Getenv("ETCD_KEY"), "identify secure client using this TLS key file")
 }
 
-func StartController() error {
-	c := GetConnOpts()
-	etcdcli, err := client.NewEtcdClient(EndpointsCmd, c)
-	if err != nil {
-		return err
+func StartController() {
+	for {
+		c := GetConnOpts()
+		etcdcli, err := client.NewEtcdClient(EndpointsCmd, c)
+		if err != nil {
+			klog.Fatal("Error creating new etcd client %v", err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), client.RequestDefaultTimeout)
+		err = defrag.RunDefrag(ctx, etcdcli, c)
+		if err != nil {
+			klog.Fatal("Defragment error: %v", err)
+		}
+		etcdcli.Close()
+		cancel()
+		time.Sleep(30 * time.Second)
 	}
-	defer etcdcli.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), client.RequestDefaultTimeout)
-	defrag.RunDefrag(ctx, etcdcli, c)
-	cancel()
-	return nil
 }
 
 // Get connection options from cmd

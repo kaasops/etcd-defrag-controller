@@ -3,11 +3,10 @@ package defrag
 import (
 	"context"
 	"etcd-defrag-controller/pkg/client"
-	"fmt"
-	"log"
 
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"k8s.io/klog/v2"
 )
 
 func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts) error {
@@ -40,22 +39,34 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 	}
 
 	for _, member := range etcdMembers {
-		cli, err := client.NewMemberEtcdClient(member, c)
+		klog.Infof("Start defragmenting endpoint: %s", member.Name)
+		_, err := DefragmentMember(ctx, member, c)
 		if err != nil {
 			return err
 		}
-		log.Printf("Start defragmenting endpoint: %s", member.Name)
-		resp, err := cli.Get(ctx, "health")
-		if err != nil {
-			return err
-		}
-		fmt.Println(resp.Header)
-		_, err = etcdcli.Defragment(ctx, member.ClientURLs[0])
-
-		if err != nil {
-			return err
-		}
-		log.Println("Finished defrag")
+		klog.Infof("Finished defrag")
 	}
 	return nil
+}
+
+func DefragmentMember(ctx context.Context, member *etcdserverpb.Member, c *client.ConnOpts) (*clientv3.DefragmentResponse, error) {
+
+	cli, err := client.NewMemberEtcdClient(member, c)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if cli == nil {
+			return
+		}
+		if err := cli.Close(); err != nil {
+			klog.Errorf("error closing etcd client for defrag: %v", err)
+		}
+	}()
+	resp, err := cli.Defragment(ctx, member.ClientURLs[0])
+
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
