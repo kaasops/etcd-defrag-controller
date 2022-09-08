@@ -26,5 +26,5 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/etcd-defrag-controller:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/etcd-defrag-controller:latest
           push: ${{ github.ref == 'refs/heads/main' }}
