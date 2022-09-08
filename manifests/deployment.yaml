@@ -3,7 +3,7 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: etcd-defrag-controller
-  namespace:  default
+  namespace: kube-system
   labels:
     app: etcd-defrag-controller
 spec:
