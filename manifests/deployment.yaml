@@ -1,0 +1,69 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: etcd-defrag-controller
+  namespace:  default
+  labels:
+    app: etcd-defrag-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etcd-defrag-controller
+  template:
+    metadata:
+      labels:
+        app: etcd-defrag-controller
+    spec:
+      terminationGracePeriodSeconds: 1
+      containers:
+      - name: etcd-defrag-controller
+        env:
+          - name: K8S_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: K8S_NODE_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: ETCD_CERTS_PATH
+            value: "/etc/ssl/etcd/ssl"
+        imagePullPolicy: Always
+        image: docker.io/dkhachyan/etcd-defrag-controller:0.0.1
+        resources:
+          limits:
+            memory: "50Mi"
+            cpu: 100m
+        args:
+          - "--endpoints=$(K8S_NODE_IP):2379"
+          - "--cacert=$(ETCD_CERTS_PATH)/ca.pem"
+          - "--cert=$(ETCD_CERTS_PATH)/admin-$(K8S_NODE_NAME).pem"
+          - "--key=$(ETCD_CERTS_PATH)/admin-$(K8S_NODE_NAME)-key.pem"
+        volumeMounts:
+        - mountPath: /etc/ssl/etcd/ssl
+          name: etcd-certs
+          readOnly: true
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: "Exists"
+        effect: "NoSchedule"
+      - key: node-role.kubernetes.io/control-plane
+        operator: "Exists"
+        effect: "NoSchedule"
+      volumes:
+        - hostPath:
+            path: /etc/ssl/etcd/ssl
+            type: DirectoryOrCreate
+          name: etcd-certs
