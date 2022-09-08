@@ -15,6 +15,10 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const (
+	DefragCheckTimeout = 12 * time.Hour
+)
+
 var (
 	EndpointsCmd string
 	CAfileCmd    string
@@ -43,6 +47,7 @@ func init() {
 	rootCmd.Flags().StringVar(&CAfileCmd, "cacert", os.Getenv("ETCD_CACERT"), "verify certificates of TLS-enabled secure servers using this CA bundle")
 	rootCmd.Flags().StringVar(&CertfileCmd, "cert", os.Getenv("ETCD_CERT"), "identify secure client using this TLS certificate file")
 	rootCmd.Flags().StringVar(&KeyfileCmd, "key", os.Getenv("ETCD_KEY"), "identify secure client using this TLS key file")
+
 }
 
 func StartController() {
@@ -59,7 +64,7 @@ func StartController() {
 		}
 		etcdcli.Close()
 		cancel()
-		time.Sleep(30 * time.Second)
+		time.Sleep(DefragCheckTimeout)
 	}
 }
 

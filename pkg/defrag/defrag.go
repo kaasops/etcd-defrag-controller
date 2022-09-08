@@ -38,16 +38,14 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 			return err
 		}
 		if !isMemberFragmented(m, status) {
-			klog.Infof("Memeber %s is not fragmented. Skipping", m.Name)
+			klog.Infof("Memeber %s is not fragmented or database less then %d bytes. Skipping", m.Name, minDefragBytes)
 			continue
 		}
 		if leader == nil && status.Leader == m.ID {
 			leader = m
 			continue
 		}
-		if isMemberFragmented(m, status) {
-			etcdMembers = append(etcdMembers, m)
-		}
+		etcdMembers = append(etcdMembers, m)
 	}
 
 	if leader != nil {
