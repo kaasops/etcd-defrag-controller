@@ -31,7 +31,7 @@ spec:
           - name: ETCD_CERTS_PATH
             value: "/etc/ssl/etcd/ssl"
         imagePullPolicy: Always
-        image: docker.io/dkhachyan/etcd-defrag-controller:0.0.1
+        image: docker.io/dkhachyan/etcd-defrag-controller:latest
         resources:
           limits:
             memory: "50Mi"
