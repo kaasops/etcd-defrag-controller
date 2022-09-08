@@ -3,10 +3,16 @@ package defrag
 import (
 	"context"
 	"etcd-defrag-controller/pkg/client"
+	"math"
 
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"k8s.io/klog/v2"
+)
+
+const (
+	minDefragBytes          int64   = 500 * 1024 * 1024 // 100MB
+	maxFragmentedPercentage float64 = 40
 )
 
 func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts) error {
@@ -16,7 +22,6 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 	}
 	var etcdMembers []*etcdserverpb.Member
 	var leader *etcdserverpb.Member
-	klog.Infof("Start defragmentation")
 	for _, m := range resp.Members {
 		if m.IsLearner {
 			continue
@@ -32,25 +37,33 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 			klog.Errorf("Member %s is unhealthy. Cancel defragmentation", m.Name)
 			return err
 		}
+		if !isMemberFragmented(m, status) {
+			klog.Infof("Memeber %s is not fragmented. Skipping", m.Name)
+			continue
+		}
 		if leader == nil && status.Leader == m.ID {
 			leader = m
 			continue
 		}
-		etcdMembers = append(etcdMembers, m)
+		if isMemberFragmented(m, status) {
+			etcdMembers = append(etcdMembers, m)
+		}
 	}
 
 	if leader != nil {
 		etcdMembers = append(etcdMembers, leader)
 	}
-
-	for _, member := range etcdMembers {
-		klog.Infof("Defragmenting endpoint: %s", member.Name)
-		_, err := DefragmentMember(ctx, member, c)
-		if err != nil {
-			return err
+	if len(etcdMembers) != 0 {
+		klog.Infof("Start defragmentation")
+		for _, member := range etcdMembers {
+			klog.Infof("Defragmenting endpoint: %s", member.Name)
+			_, err := DefragmentMember(ctx, member, c)
+			if err != nil {
+				return err
+			}
 		}
+		klog.Infof("Defragmentation finished")
 	}
-	klog.Infof("Defragmentation finished")
 	return nil
 }
 
@@ -95,4 +108,23 @@ func GetMemberHealth(ctx context.Context, member *etcdserverpb.Member, c *client
 		return true
 	}
 	return false
+}
+
+func isMemberFragmented(member *etcdserverpb.Member, endpointStatus *clientv3.StatusResponse) bool {
+	if endpointStatus == nil {
+		klog.Errorf("endpoint status validation failed: %v", endpointStatus)
+		return false
+	}
+	fragmentedPercentage := checkFragmentationPercentage(endpointStatus.DbSize, endpointStatus.DbSizeInUse)
+	if fragmentedPercentage > 0.00 {
+		klog.Infof("etcd member %q backend store fragmented: %.2f %%, dbSize: %d, dbSizeInUse: %d", member.Name, fragmentedPercentage, endpointStatus.DbSize, endpointStatus.DbSizeInUse)
+	}
+	return fragmentedPercentage >= maxFragmentedPercentage && endpointStatus.DbSize >= minDefragBytes
+
+}
+
+func checkFragmentationPercentage(ondisk, inuse int64) float64 {
+	diff := float64(ondisk - inuse)
+	fragmentedPercentage := (diff / float64(ondisk)) * 100
+	return math.Round(fragmentedPercentage*100) / 100
 }
