@@ -13,16 +13,17 @@ import (
 )
 
 type ConnOpts struct {
+	Endpoints   string
 	CAfile      string
 	Certfile    string
 	Keyfile     string
 	DialTimeout time.Duration
 }
 
-func NewEtcdClient(endpoints string, c *ConnOpts) (*clientv3.Client, error) {
+func NewEtcdClient(c *ConnOpts) (*clientv3.Client, error) {
 	cfg := clientv3.Config{
 		DialTimeout: c.DialTimeout,
-		Endpoints:   endpoinsToList(endpoints),
+		Endpoints:   endpoinsToList(c.Endpoints),
 	}
 	if c.CAfile != "" && c.Certfile != "" && c.Keyfile != "" {
 		tlsConfig, err := NewTLSConfig(c)
@@ -44,7 +45,8 @@ func NewMemberEtcdClient(member *etcdserverpb.Member, c *ConnOpts) (*clientv3.Cl
 		log.Fatalf("Member %s is not ready", member.Name)
 		return nil, nil
 	}
-	cli, err := NewEtcdClient(member.ClientURLs[0], c)
+	c.Endpoints = member.ClientURLs[0]
+	cli, err := NewEtcdClient(c)
 	if err != nil {
 		return nil, err
 	}

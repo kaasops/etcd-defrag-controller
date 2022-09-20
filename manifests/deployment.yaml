@@ -31,7 +31,7 @@ spec:
           - name: ETCD_CERTS_PATH
             value: "/etc/ssl/etcd/ssl"
         imagePullPolicy: Always
-        image: docker.io/dkhachyan/etcd-defrag-controller:latest
+        image: docker.io/dkhachyan/etcd-defrag-controller:0.0.2
         resources:
           limits:
             memory: "50Mi"
@@ -41,6 +41,8 @@ spec:
           - "--cacert=$(ETCD_CERTS_PATH)/ca.pem"
           - "--cert=$(ETCD_CERTS_PATH)/admin-$(K8S_NODE_NAME).pem"
           - "--key=$(ETCD_CERTS_PATH)/admin-$(K8S_NODE_NAME)-key.pem"
+          - "--maxfragmented=20"
+          - "--checkinterval=10"
         volumeMounts:
         - mountPath: /etc/ssl/etcd/ssl
           name: etcd-certs

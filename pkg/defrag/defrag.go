@@ -4,6 +4,7 @@ import (
 	"context"
 	"etcd-defrag-controller/pkg/client"
 	"math"
+	"time"
 
 	"go.etcd.io/etcd/api/v3/etcdserverpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -11,12 +12,37 @@ import (
 )
 
 const (
-	minDefragBytes          int64   = 500 * 1024 * 1024 // 100MB
-	maxFragmentedPercentage float64 = 40
+	minDefragBytes int64 = 500 * 1024 * 1024 // 100MB
 )
 
-func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts) error {
-	resp, err := etcdcli.MemberList(ctx)
+type DefragOpts struct {
+	MaxFragmentedPercentage   int
+	FragmentationCheckTimeout time.Duration
+}
+
+type DefragController struct {
+	Ctx        context.Context
+	Client     *clientv3.Client
+	ClientOpts *client.ConnOpts
+	DefragOpts *DefragOpts
+}
+
+func NewDefragController(ctx context.Context, copts *client.ConnOpts, dopts *DefragOpts) (*DefragController, error) {
+	etcdcli, err := client.NewEtcdClient(copts)
+	if err != nil {
+		klog.Fatal("Error creating new etcd client %v", err)
+		return nil, err
+	}
+	return &DefragController{
+		Ctx:        ctx,
+		Client:     etcdcli,
+		ClientOpts: copts,
+		DefragOpts: dopts,
+	}, nil
+}
+
+func (d *DefragController) RunDefrag() error {
+	resp, err := d.Client.MemberList(d.Ctx)
 	if err != nil {
 		return err
 	}
@@ -29,15 +55,15 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 		if len(m.ClientURLs) == 0 {
 			continue
 		}
-		status, err := etcdcli.Status(ctx, m.ClientURLs[0])
+		status, err := d.Client.Status(d.Ctx, m.ClientURLs[0])
 		if err != nil {
 			return err
 		}
-		if !GetMemberHealth(ctx, m, c) {
+		if !d.GetMemberHealth(m, d.ClientOpts) {
 			klog.Errorf("Member %s is unhealthy. Cancel defragmentation", m.Name)
 			return err
 		}
-		if !isMemberFragmented(m, status) {
+		if !d.isMemberFragmented(m, status) {
 			klog.Infof("Memeber %s is not fragmented or database less then %d bytes. Skipping", m.Name, minDefragBytes)
 			continue
 		}
@@ -55,7 +81,7 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 		klog.Infof("Start defragmentation")
 		for _, member := range etcdMembers {
 			klog.Infof("Defragmenting endpoint: %s", member.Name)
-			_, err := DefragmentMember(ctx, member, c)
+			_, err := d.DefragmentMember(member)
 			if err != nil {
 				return err
 			}
@@ -65,9 +91,9 @@ func RunDefrag(ctx context.Context, etcdcli *clientv3.Client, c *client.ConnOpts
 	return nil
 }
 
-func DefragmentMember(ctx context.Context, member *etcdserverpb.Member, c *client.ConnOpts) (*clientv3.DefragmentResponse, error) {
+func (d *DefragController) DefragmentMember(member *etcdserverpb.Member) (*clientv3.DefragmentResponse, error) {
 
-	cli, err := client.NewMemberEtcdClient(member, c)
+	cli, err := client.NewMemberEtcdClient(member, d.ClientOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +105,7 @@ func DefragmentMember(ctx context.Context, member *etcdserverpb.Member, c *clien
 			klog.Errorf("error closing etcd client for defrag: %v", err)
 		}
 	}()
-	resp, err := cli.Defragment(ctx, member.ClientURLs[0])
+	resp, err := cli.Defragment(d.Ctx, member.ClientURLs[0])
 
 	if err != nil {
 		return nil, err
@@ -87,7 +113,7 @@ func DefragmentMember(ctx context.Context, member *etcdserverpb.Member, c *clien
 	return resp, nil
 }
 
-func GetMemberHealth(ctx context.Context, member *etcdserverpb.Member, c *client.ConnOpts) bool {
+func (d *DefragController) GetMemberHealth(member *etcdserverpb.Member, c *client.ConnOpts) bool {
 	cli, err := client.NewMemberEtcdClient(member, c)
 	if err != nil {
 		klog.Errorf("Failed to create etcd member client %v", err)
@@ -101,14 +127,14 @@ func GetMemberHealth(ctx context.Context, member *etcdserverpb.Member, c *client
 			klog.Errorf("error closing etcd client for defrag: %v", err)
 		}
 	}()
-	resp, err := cli.Get(ctx, "health")
+	resp, err := cli.Get(d.Ctx, "health")
 	if err == nil && resp.Header != nil {
 		return true
 	}
 	return false
 }
 
-func isMemberFragmented(member *etcdserverpb.Member, endpointStatus *clientv3.StatusResponse) bool {
+func (d *DefragController) isMemberFragmented(member *etcdserverpb.Member, endpointStatus *clientv3.StatusResponse) bool {
 	if endpointStatus == nil {
 		klog.Errorf("endpoint status validation failed: %v", endpointStatus)
 		return false
@@ -117,7 +143,7 @@ func isMemberFragmented(member *etcdserverpb.Member, endpointStatus *clientv3.St
 	if fragmentedPercentage > 0.00 {
 		klog.Infof("etcd member %q backend store fragmented: %.2f %%, dbSize: %d, dbSizeInUse: %d", member.Name, fragmentedPercentage, endpointStatus.DbSize, endpointStatus.DbSizeInUse)
 	}
-	return fragmentedPercentage >= maxFragmentedPercentage && endpointStatus.DbSize >= minDefragBytes
+	return fragmentedPercentage >= float64(d.DefragOpts.MaxFragmentedPercentage) && endpointStatus.DbSize >= minDefragBytes
 
 }
 
