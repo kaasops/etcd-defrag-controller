@@ -1,6 +1,5 @@
 /*
 Copyright © 2022 Denis Khachyan <khachyanda@gmail.com>
-
 */
 package cmd
 
@@ -54,11 +53,15 @@ func StartController() {
 	for {
 		c := GetConnOpts()
 		d := GetDefragOpts()
+		if c.Endpoints == "" {
+			log.Fatal("Missing endpoints")
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), client.RequestDefaultTimeout)
 		dc, err := defrag.NewDefragController(ctx, c, d)
 		if err != nil {
 			log.Fatal("Failed to start defrag controller")
 		}
+		klog.Info("Controller started")
 		err = dc.RunDefrag()
 		if err != nil {
 			klog.Errorf("Defragment error: %v", err)

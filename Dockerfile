@@ -9,7 +9,7 @@ RUN go mod download
 
 COPY . ./
 
-RUN go build -o /etcd-defrag-controller
+RUN CGO_ENABLED=0 go build -o /etcd-defrag-controller
 
 ## Deploy
 FROM gcr.io/distroless/static:nonroot
@@ -17,6 +17,6 @@ WORKDIR /
 
 USER 65532:65532
 
-COPY --from=builder /etcd-defrag-controller /etcd-defrag-controller
+COPY --from=builder /etcd-defrag-controller .
 
 ENTRYPOINT ["/etcd-defrag-controller"]

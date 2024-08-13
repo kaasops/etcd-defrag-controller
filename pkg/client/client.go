@@ -3,8 +3,8 @@ package client
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -59,7 +59,7 @@ func NewTLSConfig(c *ConnOpts) (*tls.Config, error) {
 		return nil, err
 	}
 
-	cacert, err := ioutil.ReadFile(c.CAfile)
+	cacert, err := os.ReadFile(c.CAfile)
 	if err != nil {
 		return nil, err
 	}
