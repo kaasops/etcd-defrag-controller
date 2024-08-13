@@ -1,5 +1,5 @@
 ## Build
-FROM golang:1.18-buster AS build
+FROM golang:1.18-buster AS builder
 
 WORKDIR /app
 
@@ -12,10 +12,11 @@ COPY . ./
 RUN go build -o /etcd-defrag-controller
 
 ## Deploy
-FROM debian:buster-slim
-
+FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 
-COPY --from=build /etcd-defrag-controller /etcd-defrag-controller
+USER 65532:65532
+
+COPY --from=builder /etcd-defrag-controller /etcd-defrag-controller
 
 ENTRYPOINT ["/etcd-defrag-controller"]
