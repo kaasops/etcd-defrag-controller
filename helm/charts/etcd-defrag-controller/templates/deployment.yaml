@@ -30,7 +30,7 @@ spec:
                 fieldPath: status.hostIP
           - name: ETCD_CERTS_PATH
             value: "/etc/ssl/etcd/ssl"
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
         resources:
           limits:

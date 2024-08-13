@@ -12,10 +12,8 @@ COPY . ./
 RUN CGO_ENABLED=0 go build -o /etcd-defrag-controller
 
 ## Deploy
-FROM gcr.io/distroless/static:nonroot
+FROM debian:buster-slim
 WORKDIR /
-
-USER 65532:65532
 
 COPY --from=builder /etcd-defrag-controller .
 
