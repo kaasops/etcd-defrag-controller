@@ -1,0 +1,17 @@
+apiVersion: v1
+entries:
+  etcd-defrag-controller:
+  - apiVersion: v2
+    appVersion: v0.0.1
+    created: "2024-08-13T10:26:02.023233+03:00"
+    description: A Helm chart to install etcd defrag controller
+    digest: 4a0c32850669adb1ac2d7ad3940da2e0faf4eb3ad773887f97e2180fc2baffe4
+    home: https://github.com/kaasops/etcd-defrag-controller
+    name: etcd-defrag-controller
+    sources:
+    - https://github.com/kaasops/etcd-defrag-controller
+    type: application
+    urls:
+    - https://kaasops.github.io/etcd-defrag-controller/helm/packages/etcd-defrag-controller-0.0.1.tgz
+    version: 0.0.1
+generated: "2024-08-13T10:26:02.023047+03:00"

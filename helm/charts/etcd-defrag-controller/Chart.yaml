@@ -1,0 +1,10 @@
+apiVersion: v2
+name: etcd-defrag-controller
+description: A Helm chart to install etcd defrag controller
+type: application
+version: 0.0.1
+appVersion: "v0.0.1"
+
+home: https://github.com/kaasops/etcd-defrag-controller
+sources: 
+  - https://github.com/kaasops/etcd-defrag-controller
