@@ -41,8 +41,8 @@ spec:
           - "--cacert=$(ETCD_CERTS_PATH)/ca.pem"
           - "--cert=$(ETCD_CERTS_PATH)/admin-$(K8S_NODE_NAME).pem"
           - "--key=$(ETCD_CERTS_PATH)/admin-$(K8S_NODE_NAME)-key.pem"
-          - "--maxfragmented=20"
-          - "--checkinterval=10"
+          - "--maxfragmented={{ default 40 .Values.checkInterval }}"
+          - "--checkinterval={{ default 10 .Values.checkInterval }}"
         volumeMounts:
         - mountPath: /etc/ssl/etcd/ssl
           name: etcd-certs

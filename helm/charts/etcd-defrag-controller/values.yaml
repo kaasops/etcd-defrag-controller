@@ -2,3 +2,9 @@ image:
   repository: kaasops/etcd-defrag-controller
   tag: "" # rewrites Chart.AppVersion
   pullPolicy: IfNotPresent
+
+# Fragmentation check interval in hours
+# checkInterval: 10
+
+# Fragmentation percent
+# maxFragmented: 40
